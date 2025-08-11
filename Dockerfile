@@ -7,6 +7,9 @@ RUN adduser --system --group appuser
 
 
 WORKDIR /app
+
+ENV MPLCONFIGDIR=/tmp/.matplotlib 
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
