@@ -8,7 +8,12 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
     is_admin = models.BooleanField(default=False)
     is_alive = models.BooleanField(default=True)
-
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        blank=True,
+        null=True,
+    )
     def __str__(self):
         return self.username
 
