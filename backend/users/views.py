@@ -13,6 +13,16 @@ class UserListCreateView(ListCreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
 
+    def post(self, request, *args, **kwargs):
+        telegram_id = request.data.get('telegram_id')
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+            serializer = self.get_serializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            pass
+        return super().post(request, *args, **kwargs)
+
 
 class UserRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
