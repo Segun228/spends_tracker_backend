@@ -1,15 +1,26 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
+import logging
 
 class TelegramAuthentication(BaseAuthentication):
     def authenticate(self, request):
-        telegram_id = request.headers.get('Authorization')
-        if not telegram_id:
+        telegram_header = request.headers.get('Authorization')
+        if telegram_header is None or not telegram_header:
+            logging.error("Error finding auth header")
             return None
+        prefix, telegram_id = telegram_header.split(" ")
+        if prefix != "Bot":
+            logging.error("Error finding header prefix")
+            return None
+        if not telegram_id or not telegram_id.isdigit():
+            logging.error("Telegram id is invalid")
+            return None
+        telegram_id = int(telegram_id)
         User = get_user_model()
         try:
             user = User.objects.get(telegram_id=telegram_id)
         except User.DoesNotExist:
+            logging.error("Пользователь с таким Telegram ID не найден.")
             raise AuthenticationFailed('Пользователь с таким Telegram ID не найден.')
         return (user, None)

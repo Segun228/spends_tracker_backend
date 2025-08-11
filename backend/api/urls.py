@@ -3,8 +3,8 @@ from api.views import IncomeListCreateView, IncomeRetrieveUpdateDestroyView, Exp
 
 
 urlpatterns = [
-    path('income/', IncomeListCreateView.as_view(), name='income-list-create'),
-    path('income/<int:id>/', IncomeRetrieveUpdateDestroyView.as_view(), name='income-update-destroy'),
-    path('expense/', ExpenseListCreateView.as_view(), name='expense-list-create'),
-    path('expense/<int:id>/', ExpenseRetrieveUpdateDestroyView.as_view(), name='expense-update-destroy'),
+    path('incomes/', IncomeListCreateView.as_view(), name='income-list-create'),
+    path('incomes/<int:id>/', IncomeRetrieveUpdateDestroyView.as_view(), name='income-update-destroy'),
+    path('expenses/', ExpenseListCreateView.as_view(), name='expense-list-create'),
+    path('expenses/<int:id>/', ExpenseRetrieveUpdateDestroyView.as_view(), name='expense-update-destroy'),
 ]
