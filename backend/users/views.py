@@ -3,7 +3,7 @@ from .serializers import UserSerializer
 from rest_framework.generics import (
     ListCreateAPIView, RetrieveUpdateDestroyAPIView
 )
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -27,7 +27,7 @@ class UserListCreateView(ListCreateAPIView):
 class UserRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     def get_object(self):
         if 'telegram_id' in self.kwargs:
             return self.queryset.get(telegram_id=self.kwargs['telegram_id'])

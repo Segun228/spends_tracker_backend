@@ -4,15 +4,15 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import io
-
+from typing import List, Dict, Any
 
 def statistics(data:dict):
-    expenses = data["expenses"]
-    incomes = data["incomes"]
-
+    expenses = data.get("expenses")
+    incomes = data.get("incomes")
+    if not expenses or not incomes:
+        return None
     expenses_df = pd.DataFrame(expenses)
     incomes_df = pd.DataFrame(incomes)
-
     expenses_df["created_at"] = pd.to_datetime(expenses_df["created_at"]).dt.tz_localize(None)
     incomes_df["created_at"] = pd.to_datetime(incomes_df["created_at"]).dt.tz_localize(None)
 
@@ -48,6 +48,11 @@ def statistics(data:dict):
     total_expenses = expenses_df["value"].sum()
     total_profit = total_incomes - total_expenses
 
+    max_month_expense = last_month_expenses["value"].max()
+    max_year_expense = last_year_expenses["value"].max()
+    max_expense = expenses_df["value"].max()
+    ballance = total_profit
+
     return {
         "expenses":{
             "records":{
@@ -59,7 +64,11 @@ def statistics(data:dict):
                 "total_expenses":total_expenses,
                 "total_year_expenses":total_year_expenses,
                 "total_month_expenses":total_month_expenses
-            }
+            },
+            "max_month_expense":max_month_expense,
+            "max_year_expense":max_year_expense,
+            "max_expense":max_expense,
+            "ballance":ballance
         },
         "incomes":{
             "records":{
@@ -84,95 +93,101 @@ def statistics(data:dict):
 
 
 
+def _create_pie_chart(data: pd.DataFrame, title: str, ax) -> None:
+    if not data.empty:
+        pie_data = data.groupby("category")["value"].sum()
+        pie_data.plot(
+            kind="pie",
+            autopct="%1.1f%%",
+            startangle=90,
+            colormap="Pastel1" if "Расходы" in title else "Pastel2",
+            ylabel="",
+            ax=ax,
+            title=title
+        )
+    else:
+        ax.set_title(f"Нет данных для {title.lower()}")
+        ax.axis('off')
 
-def visualization(data: dict):
-    incomes_df = pd.DataFrame(data["incomes"])
-    expenses_df = pd.DataFrame(data["expenses"])
+def _create_line_chart(data: pd.DataFrame, title: str, ax) -> None:
+    if not data.empty:
+        trends_data = data.groupby([pd.Grouper(key="created_at", freq="D"), "category"])["value"].sum().reset_index()
+        sns.lineplot(
+            data=trends_data,
+            x="created_at",
+            y="value",
+            hue="category",
+            marker="o",
+            ax=ax
+        )
+        ax.set_title(title)
+        ax.set_ylabel("Сумма")
+        ax.set_xlabel("Дата")
+        ax.grid(True, alpha=0.3)
+        ax.legend(title="Категории", bbox_to_anchor=(1.05, 1), loc='upper left')
+    else:
+        ax.set_title(f"Нет данных для {title.lower()}")
+        ax.axis('off')
 
+def visualization(data: Dict[str, List[Dict[str, Any]]]) -> List[bytes]:
+    
+    incomes_df = pd.DataFrame(data.get("incomes", []))
+    expenses_df = pd.DataFrame(data.get("expenses", []))
+
+    today = pd.Timestamp.now()
+    one_year_ago = today - pd.DateOffset(years=1)
+    one_month_ago = today - pd.DateOffset(months=1)
+
+    plots_bytes: List[bytes] = []
 
     if not incomes_df.empty:
-        incomes_df["created_at"] = pd.to_datetime(incomes_df["created_at"])
+        incomes_df["created_at"] = pd.to_datetime(incomes_df["created_at"]).dt.tz_localize(None)
         incomes_df = incomes_df.dropna(subset=["category", "value"])
     
     if not expenses_df.empty:
-        expenses_df["created_at"] = pd.to_datetime(expenses_df["created_at"])
+        expenses_df["created_at"] = pd.to_datetime(expenses_df["created_at"]).dt.tz_localize(None)
         expenses_df = expenses_df.dropna(subset=["category", "value"])
-        
-    incomes_pie_data = incomes_df.groupby("category")["value"].sum()
-    expenses_pie_data = expenses_df.groupby("category")["value"].sum()
 
-    incomes_trends_grouped = incomes_df.groupby([pd.Grouper(key="created_at", freq="D"), "category"])["value"].sum().reset_index()
-    expenses_trends_grouped = expenses_df.groupby([pd.Grouper(key="created_at", freq="D"), "category"])["value"].sum().reset_index()
+    last_year_incomes = incomes_df[incomes_df.created_at > one_year_ago] if not incomes_df.empty else pd.DataFrame()
+    last_month_incomes = incomes_df[incomes_df.created_at > one_month_ago] if not incomes_df.empty else pd.DataFrame()
+    last_year_expenses = expenses_df[expenses_df.created_at > one_year_ago] if not expenses_df.empty else pd.DataFrame()
+    last_month_expenses = expenses_df[expenses_df.created_at > one_month_ago] if not expenses_df.empty else pd.DataFrame()
 
+    pie_data = [
+        (incomes_df, "Доходы за всё время"),
+        (expenses_df, "Расходы за всё время"),
+        (last_year_incomes, "Доходы за год"),
+        (last_year_expenses, "Расходы за год"),
+        (last_month_incomes, "Доходы за месяц"),
+        (last_month_expenses, "Расходы за месяц"),
+    ]
 
-    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    for df, title in pie_data:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _create_pie_chart(df, title, ax)
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png")
+        img_buffer.seek(0)
+        plots_bytes.append(img_buffer.getvalue())
+        plt.close(fig)
 
-    if not incomes_pie_data.empty:
-        incomes_pie_data.plot(
-            kind="pie",
-            autopct="%1.1f%%",
-            startangle=90,
-            colormap="Pastel2",
-            ylabel="",
-            ax=axes[0, 0],
-            title="Доходы по категориям"
-        )
-    else:
-        axes[0, 0].set_title("Нет данных о доходах")
-    
-    if not expenses_pie_data.empty:
-        expenses_pie_data.plot(
-            kind="pie",
-            autopct="%1.1f%%",
-            startangle=90,
-            colormap="Pastel1",
-            ylabel="",
-            ax=axes[0, 1],
-            title="Расходы по категориям"
-        )
-    else:
-        axes[0, 1].set_title("Нет данных о расходах")
+    line_data = [
+        (incomes_df, "Динамика доходов за всё время"),
+        (expenses_df, "Динамика расходов за всё время"),
+        (last_year_incomes, "Динамика доходов за год"),
+        (last_year_expenses, "Динамика расходов за год"),
+        (last_month_incomes, "Динамика доходов за месяц"),
+        (last_month_expenses, "Динамика расходов за месяц"),
+    ]
 
-    if not incomes_trends_grouped.empty:
-        sns.lineplot(
-            data=incomes_trends_grouped,
-            x="created_at",
-            y="value",
-            hue="category",
-            marker="o",
-            ax=axes[1, 0]
-        )
-        axes[1, 0].set_title("Динамика доходов")
-        axes[1, 0].set_ylabel("Сумма")
-        axes[1, 0].set_xlabel("Дата")
-        axes[1, 0].grid(True, alpha=0.3)
-        axes[1, 0].legend(title="Категории", bbox_to_anchor=(1.05, 1), loc='upper left')
-    else:
-        axes[1, 0].set_title("Нет данных для трендов доходов")
+    for df, title in line_data:
+        fig, ax = plt.subplots(figsize=(15, 8))
+        _create_line_chart(df, title, ax)
+        plt.tight_layout()
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png")
+        img_buffer.seek(0)
+        plots_bytes.append(img_buffer.getvalue())
+        plt.close(fig)
 
-    if not expenses_trends_grouped.empty:
-        sns.lineplot(
-            data=expenses_trends_grouped,
-            x="created_at",
-            y="value",
-            hue="category",
-            marker="o",
-            ax=axes[1, 1]
-        )
-        axes[1, 1].set_title("Динамика расходов")
-        axes[1, 1].set_ylabel("Сумма")
-        axes[1, 1].set_xlabel("Дата")
-        axes[1, 1].grid(True, alpha=0.3)
-        axes[1, 1].legend(title="Категории", bbox_to_anchor=(1.05, 1), loc='upper left')
-    else:
-        axes[1, 1].set_title("Нет данных для трендов расходов")
-
-    plt.suptitle("Аналитика доходов и расходов", fontsize=20, y=0.95)
-    plt.tight_layout(rect=(0, 0, 1, 0.9))
-    
-    img_buffer = io.BytesIO()
-    plt.savefig(img_buffer, format="png")
-    img_buffer.seek(0)
-    plt.close(fig)
-    
-    return img_buffer.getvalue()
+    return plots_bytes
