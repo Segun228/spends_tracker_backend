@@ -6,12 +6,10 @@ import logging
 class TelegramAuthentication(BaseAuthentication):
     def authenticate(self, request):
         telegram_header = request.headers.get('Authorization')
-        print(telegram_header)
         if (telegram_header is None) or (not telegram_header):
             logging.error("Error finding auth headero")
             return None
         prefix, telegram_id = telegram_header.split(" ")
-        print(prefix, "l",telegram_id)
         if prefix.strip() != "Bot":
             logging.error("Error finding header prefix")
             return None
